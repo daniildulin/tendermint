@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.8
+
+*June 2nd, 2018*
+
+BUG FIXES
+
+- [mempool] Fix deadlock when `skip_timeout_commit=true` and
+  `create_empty_blocks=false`
+
 ## 0.19.7
 
 *May 31st, 2018*
