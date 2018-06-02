@@ -64,16 +64,15 @@ var (
 type Mempool struct {
 	config *cfg.MempoolConfig
 
-	proxyMtx             sync.Mutex
-	proxyAppConn         proxy.AppConnMempool
-	txs                  *clist.CList    // concurrent linked-list of good txs
-	counter              int64           // simple incrementing counter
-	height               int64           // the last block Update()'d to
-	rechecking           int32           // for re-checking filtered txs on Update()
-	recheckCursor        *clist.CElement // next expected response
-	recheckEnd           *clist.CElement // re-checking stops here
-	notifiedTxsAvailable bool            // true if fired on txsAvailable for this height
-	txsAvailable         chan int64      // fires the next height once for each height, when the mempool is not empty
+	proxyMtx      sync.Mutex
+	proxyAppConn  proxy.AppConnMempool
+	txs           *clist.CList    // concurrent linked-list of good txs
+	counter       int64           // simple incrementing counter
+	height        int64           // the last block Update()'d to
+	rechecking    int32           // for re-checking filtered txs on Update()
+	recheckCursor *clist.CElement // next expected response
+	recheckEnd    *clist.CElement // re-checking stops here
+	txsAvailable  chan int64      // fires the next height once for each height, when the mempool is not empty
 
 	// Keep a cache of already-seen txs.
 	// This reduces the pressure on the proxyApp.
@@ -327,9 +326,11 @@ func (mem *Mempool) notifyTxsAvailable() {
 	if mem.Size() == 0 {
 		panic("notified txs available but mempool is empty!")
 	}
-	if mem.txsAvailable != nil && !mem.notifiedTxsAvailable {
-		mem.notifiedTxsAvailable = true
-		mem.txsAvailable <- mem.height + 1
+	if mem.txsAvailable != nil {
+		select {
+		case mem.txsAvailable <- mem.height + 1:
+		default:
+		}
 	}
 }
 
@@ -375,7 +376,6 @@ func (mem *Mempool) Update(height int64, txs types.Txs) error {
 
 	// Set height
 	mem.height = height
-	mem.notifiedTxsAvailable = false
 
 	// Remove transactions that are already in txs.
 	goodTxs := mem.filterTxs(txsMap)
